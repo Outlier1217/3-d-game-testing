@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Outlier Run 🎮</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0a0010;
+      overflow: hidden;
+      font-family: 'Courier New', monospace;
+    }
+    #renderCanvas {
+      width: 100vw;
+      height: 100vh;
+      display: block;
+      touch-action: none;
+    }
+    #ui-overlay {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+      z-index: 10;
+    }
+    #hud {
+      position: fixed;
+      top: 20px; left: 20px;
+      color: #00ffcc;
+      font-size: 18px;
+      font-family: 'Courier New', monospace;
+      text-shadow: 0 0 10px #00ffcc, 0 0 20px #00ffcc;
+      letter-spacing: 2px;
+      line-height: 1.8;
+    }
+    #hud .lives { color: #ff4466; text-shadow: 0 0 10px #ff4466; }
+    #hud .level { color: #ffcc00; text-shadow: 0 0 10px #ffcc00; }
+
+    #start-screen, #gameover-screen, #win-screen {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(5, 0, 15, 0.92);
+      z-index: 100;
+      gap: 24px;
+    }
+    #gameover-screen, #win-screen { display: none; }
+
+    .screen-title {
+      font-family: 'Courier New', monospace;
+      font-size: clamp(36px, 6vw, 72px);
+      font-weight: 900;
+      color: #00ffcc;
+      text-shadow: 0 0 20px #00ffcc, 0 0 40px #00ffcc, 0 0 80px #00bbaa;
+      letter-spacing: 6px;
+      text-align: center;
+      animation: pulse 2s ease-in-out infinite;
+    }
+    .screen-subtitle {
+      font-size: clamp(14px, 2vw, 20px);
+      color: #8866ff;
+      letter-spacing: 3px;
+      text-shadow: 0 0 10px #8866ff;
+    }
+    .screen-instructions {
+      color: #aaaacc;
+      font-size: 14px;
+      letter-spacing: 2px;
+      text-align: center;
+      line-height: 2;
+    }
+    .screen-instructions span { color: #ffcc00; text-shadow: 0 0 8px #ffcc00; }
+    .btn {
+      pointer-events: all;
+      cursor: pointer;
+      background: transparent;
+      border: 2px solid #00ffcc;
+      color: #00ffcc;
+      font-family: 'Courier New', monospace;
+      font-size: 18px;
+      letter-spacing: 4px;
+      padding: 14px 40px;
+      text-shadow: 0 0 10px #00ffcc;
+      box-shadow: 0 0 20px rgba(0,255,204,0.3), inset 0 0 20px rgba(0,255,204,0.05);
+      transition: all 0.2s;
+    }
+    .btn:hover {
+      background: rgba(0,255,204,0.1);
+      box-shadow: 0 0 40px rgba(0,255,204,0.6), inset 0 0 20px rgba(0,255,204,0.1);
+      transform: scale(1.05);
+    }
+    #score-display {
+      color: #ffcc00;
+      font-size: 24px;
+      text-shadow: 0 0 15px #ffcc00;
+    }
+    @keyframes pulse {
+      0%, 100% { text-shadow: 0 0 20px #00ffcc, 0 0 40px #00ffcc; }
+      50% { text-shadow: 0 0 30px #00ffcc, 0 0 60px #00ffcc, 0 0 100px #00ffaa; }
+    }
+    .controls-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px 32px;
+      color: #aaaacc;
+      font-size: 13px;
+      letter-spacing: 1px;
+    }
+    .controls-grid .key {
+      color: #ffcc00;
+      text-shadow: 0 0 8px #ffcc00;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="renderCanvas"></canvas>
+
+  <div id="hud">
+    <div>SCORE: <span id="score-val">0</span></div>
+    <div class="lives">LIVES: <span id="lives-val">3</span></div>
+    <div class="level">LEVEL: <span id="level-val">1</span></div>
+    <div>COINS: <span id="coins-val">0</span></div>
+  </div>
+
+  <!-- START SCREEN -->
+  <div id="start-screen">
+    <div class="screen-title">OUTLIER RUN</div>
+    <div class="screen-subtitle">A 3D NEON PLATFORMER</div>
+    <div class="controls-grid">
+      <span><span class="key">W / ↑</span> — MOVE FORWARD</span>
+      <span><span class="key">S / ↓</span> — MOVE BACK</span>
+      <span><span class="key">A / ←</span> — MOVE LEFT</span>
+      <span><span class="key">D / →</span> — MOVE RIGHT</span>
+      <span><span class="key">SPACE</span> — JUMP</span>
+      <span><span class="key">SHIFT+SPACE</span> — DOUBLE JUMP</span>
+    </div>
+    <div class="screen-instructions">
+      Collect <span>COINS</span> · Reach the <span>GOAL FLAG</span> · Avoid <span>ENEMIES</span><br/>
+      Fall off the edge = lose a life
+    </div>
+    <button class="btn" id="start-btn">START GAME</button>
+  </div>
+
+  <!-- GAME OVER SCREEN -->
+  <div id="gameover-screen">
+    <div class="screen-title" style="color:#ff4466;text-shadow:0 0 20px #ff4466,0 0 40px #ff4466;">GAME OVER</div>
+    <div id="score-display">SCORE: <span id="final-score">0</span></div>
+    <button class="btn" style="border-color:#ff4466;color:#ff4466;text-shadow:0 0 10px #ff4466;" id="restart-btn">TRY AGAIN</button>
+  </div>
+
+  <!-- WIN SCREEN -->
+  <div id="win-screen">
+    <div class="screen-title" style="color:#ffcc00;text-shadow:0 0 20px #ffcc00,0 0 40px #ffcc00;">YOU WIN!</div>
+    <div id="score-display">SCORE: <span id="win-score">0</span></div>
+    <button class="btn" style="border-color:#ffcc00;color:#ffcc00;text-shadow:0 0 10px #ffcc00;" id="next-btn">NEXT LEVEL</button>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
